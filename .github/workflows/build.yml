@@ -1,4 +1,4 @@
-name: Compile RodowódOS Pipeline (Debian Engine)
+name: Compile RodowódOS Pipeline
 
 on:
   workflow_dispatch:
@@ -9,53 +9,35 @@ jobs:
     container:
       image: debian:buster
     steps:
-      - name: Route APT to Debian Archive Mirrors
+      - name: Setup Debian Environment
         run: |
           echo "deb http://archive.debian.org/debian/ buster main contrib non-free" > /etc/apt/sources.list
           echo "deb http://archive.debian.org/debian-security/ buster/updates main contrib non-free" >> /etc/apt/sources.list
           echo 'Acquire::Check-Valid-Until "false";' > /etc/apt/apt.conf.d/99no-check-valid-until
-
-      - name: Install Base Checkout Requirements
-        run: |
           apt-get update
-          apt-get install -y git git-lfs curl sudo procps
+          apt-get install -y git git-lfs curl sudo procps bc bison build-essential \
+            ccache curl flex g++-multilib gcc-multilib gnupg gperf lib32readline-dev \
+            lib32z1-dev liblz4-tool libncurses5 libncurses5-dev libssl-dev \
+            libxml2 libxml2-utils lzop pngcrush rsync schedtool squashfs-tools \
+            xsltproc zip zlib1g-dev openjdk-11-jdk python3
 
-      - name: Checkout Build Repository
-        uses: actions/checkout@v4
-
-      - name: Install Debian Compiler Dependencies
-        run: |
-          dpkg --add-architecture i386
-          apt-get update
-          apt-get install -y bc bison build-essential ccache curl flex g++-multilib \
-            gcc-multilib git gnupg gperf lib32readline-dev lib32z1-dev \
-            liblz4-tool libncurses5 libncurses5-dev libssl-dev libxml2 \
-            libxml2-utils lzop pngcrush rsync schedtool squashfs-tools xsltproc zip zlib1g-dev \
-            openjdk-11-jdk python3
-
-      - name: Setup Legacy Python Compatible Repo Binary
-        run: |
-          curl https://storage.googleapis.com/git-repo-downloads/repo-1 > /usr/local/bin/repo
-          chmod a+x /usr/local/bin/repo
-          update-alternatives --install /usr/bin/python python /usr/bin/python3 1
-
-      - name: Configure Git Global Parameters
+      - name: Configure Environment
         run: |
           git config --global user.name "MatispokoYT"
           git config --global user.email "dorosmateusz@gmail.com"
           git config --global --add safe.directory '*'
+          curl https://storage.googleapis.com/git-repo-downloads/repo-1 > /usr/local/bin/repo
+          chmod a+x /usr/local/bin/repo
 
-      - name: Download Baseline Source (Shallow Storage Optimized)
+      - name: Fetch Android Source
         run: |
           mkdir -p $GITHUB_WORKSPACE/android/lineage
           cd $GITHUB_WORKSPACE/android/lineage
           repo init --repo-url=https://gerrit.googlesource.com/git-repo -u https://github.com/LineageOS/android.git -b lineage-16.0 --depth=1 --no-repo-verify
-          repo sync -c -j$(nproc --all) --force-sync --no-clone-bundle --no-tags
-
-      - name: Inject Custom Local Manifest Mapping
-        run: |
-          mkdir -p $GITHUB_WORKSPACE/android/lineage/.repo/local_manifests
-          cat <<EOF > $GITHUB_WORKSPACE/android/lineage/.repo/local_manifests/agassi2.xml
+          
+          # Inject Manifest
+          mkdir -p .repo/local_manifests
+          cat <<EOF > .repo/local_manifests/agassi2.xml
           <?xml version="1.0" encoding="UTF-8"?>
           <manifest>
             <project name="MatispokoYT/device_huawei_agassi2" path="device/huawei/prague" remote="github" revision="aosp-9.0" />
@@ -63,33 +45,18 @@ jobs:
             <project name="DarkJoker360/proprietary_vendor_huawei_prague" path="vendor/huawei/prague" remote="github" revision="lineage-15.1" />
           </manifest>
           EOF
-          cd $GITHUB_WORKSPACE/android/lineage
           repo sync -c -j$(nproc --all) --force-sync
 
-      - name: Clean Repo Metadata to Free Up Space
-        run: |
-          rm -rf $GITHUB_WORKSPACE/android/lineage/.repo
-
-      - name: Execute Surface-Level Name Branding Overrides
-        run: |
-          cd $GITHUB_WORKSPACE/android/lineage/vendor/lineage
-          sed -i 's/PRODUCT_BRAND := LineageOS/PRODUCT_BRAND := RodowódOS/g' config/common.mk
-          sed -i 's/LineageOS/RodowódOS/g' config/common.mk
-          sed -i 's/lineage_/rodowodos_/g' config/common.mk
-          sed -i 's/LINEAGE_VERSION := LineageOS-/LINEAGE_VERSION := RodowódOS-/g' config/common.mk
-
-      - name: Run Build System Compiler Engine
-        shell: bash
+      - name: Compile OS
         run: |
           cd $GITHUB_WORKSPACE/android/lineage
-          export USER=$(whoami)
           source build/envsetup.sh
           lunch aosp_agassi2-userdebug
           make api-stubs-docs || true
           make systemimage userdataimage bootimage-nodeps -j$(nproc --all)
 
-      - name: Export Flashable Package Artifacts
+      - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: RodowodOS-MediaPad-T5-Package
-          path: ${{ github.workspace }}/android/lineage/out/target/product/prague/*.zip
+          name: RodowodOS-Build
+          path: ${{ github.workspace }}/android/lineage/out/target/product/agassi2/*.zip
