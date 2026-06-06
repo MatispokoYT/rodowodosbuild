@@ -5,10 +5,18 @@ on:
 
 jobs:
   build_rom:
-    runs-on: ubuntu-latest # Tells GitHub to give us a free machine
+    runs-on: ubuntu-latest
     container:
-      image: debian:buster # Forces the entire job to execute inside a legacy Debian 10 environment
+      image: debian:buster
     steps:
+      - name: Route APT to Debian Archive Mirrors
+        run: |
+          # Overwrite sources to point to the official long-term historical archive
+          echo "deb http://archive.debian.org/debian/ buster main contrib non-free" > /etc/apt/sources.list
+          echo "deb http://archive.debian.org/debian-security/ buster/updates main contrib non-free" >> /etc/apt/sources.list
+          # Disable the valid-until check because archive repositories don't update expiration timestamps
+          echo 'Acquire::Check-Valid-Until "false";' > /etc/apt/apt.conf.d/99no-check-valid-until
+
       - name: Install Base Checkout Requirements
         run: |
           apt-get update
@@ -19,7 +27,6 @@ jobs:
 
       - name: Install Debian Compiler Dependencies
         run: |
-          # Enable 32-bit architecture so Debian can find the legacy multilib stuff
           dpkg --add-architecture i386
           apt-get update
           apt-get install -y bc bison build-essential ccache curl flex g++-multilib \
@@ -32,7 +39,6 @@ jobs:
         run: |
           git config --global user.name "MatispokoYT"
           git config --global user.email "dorosmateusz@gmail.com"
-          # Stop git complaining about ownership inside docker volumes
           git config --global --add safe.directory '*'
 
       - name: Download Baseline Source (Shallow Storage Optimized)
@@ -72,7 +78,6 @@ jobs:
       - name: Run Build System Compiler Engine
         run: |
           cd ~/android/lineage
-          # Debian needs an explicit path definition fallback sometimes for older scripts
           export USER=$(whoami)
           
           source build/envsetup.sh
