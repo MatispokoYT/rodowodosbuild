@@ -11,10 +11,8 @@ jobs:
     steps:
       - name: Route APT to Debian Archive Mirrors
         run: |
-          # Overwrite sources to point to the official long-term historical archive
           echo "deb http://archive.debian.org/debian/ buster main contrib non-free" > /etc/apt/sources.list
           echo "deb http://archive.debian.org/debian-security/ buster/updates main contrib non-free" >> /etc/apt/sources.list
-          # Disable the valid-until check because archive repositories don't update expiration timestamps
           echo 'Acquire::Check-Valid-Until "false";' > /etc/apt/apt.conf.d/99no-check-valid-until
 
       - name: Install Base Checkout Requirements
@@ -43,15 +41,16 @@ jobs:
 
       - name: Download Baseline Source (Shallow Storage Optimized)
         run: |
-          mkdir -p ~/android/lineage
-          cd ~/android/lineage
-          repo init -u https://github.com/LineageOS/android.git -b lineage-16.0 --depth=1 --git-lfs
+          mkdir -p $GITHUB_WORKSPACE/android/lineage
+          cd $GITHUB_WORKSPACE/android/lineage
+          # Removed the incompatible --git-lfs flag for the legacy repo binary
+          repo init -u https://github.com/LineageOS/android.git -b lineage-16.0 --depth=1
           repo sync -c -j$(nproc --all) --force-sync --no-clone-bundle --no-tags
 
       - name: Inject Custom Local Manifest Mapping
         run: |
-          mkdir -p ~/android/lineage/.repo/local_manifests
-          cat <<EOF > ~/android/lineage/.repo/local_manifests/agassi2.xml
+          mkdir -p $GITHUB_WORKSPACE/android/lineage/.repo/local_manifests
+          cat <<EOF > $GITHUB_WORKSPACE/android/lineage/.repo/local_manifests/agassi2.xml
           <?xml version="1.0" encoding="UTF-8"?>
           <manifest>
             <project name="MatispokoYT/device_huawei_agassi2" path="device/huawei/prague" remote="github" revision="aosp-9.0" />
@@ -60,16 +59,16 @@ jobs:
           </manifest>
           EOF
           
-          cd ~/android/lineage
+          cd $GITHUB_WORKSPACE/android/lineage
           repo sync -c -j$(nproc --all) --force-sync
 
       - name: Clean Repo Metadata to Free Up Space
         run: |
-          rm -rf ~/android/lineage/.repo
+          rm -rf $GITHUB_WORKSPACE/android/lineage/.repo
 
       - name: Execute Surface-Level Name Branding Overrides
         run: |
-          cd ~/android/lineage/vendor/lineage
+          cd $GITHUB_WORKSPACE/android/lineage/vendor/lineage
           sed -i 's/PRODUCT_BRAND := LineageOS/PRODUCT_BRAND := RodowódOS/g' config/common.mk
           sed -i 's/LineageOS/RodowódOS/g' config/common.mk
           sed -i 's/lineage_/rodowodos_/g' config/common.mk
@@ -77,7 +76,7 @@ jobs:
 
       - name: Run Build System Compiler Engine
         run: |
-          cd ~/android/lineage
+          cd $GITHUB_WORKSPACE/android/lineage
           export USER=$(whoami)
           
           source build/envsetup.sh
@@ -89,4 +88,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: RodowodOS-MediaPad-T5-Package
-          path: ~/android/lineage/out/target/product/prague/*.zip
+          path: ${{ github.workspace }}/android/lineage/out/target/product/prague/*.zip
