@@ -23,6 +23,7 @@ jobs:
 
       - name: Configure Environment
         run: |
+          sudo ln -s /usr/bin/python3 /usr/bin/python
           git config --global user.name "MatispokoYT"
           git config --global user.email "dorosmateusz@gmail.com"
           git config --global --add safe.directory '*'
@@ -35,7 +36,6 @@ jobs:
           cd $GITHUB_WORKSPACE/android/lineage
           repo init --repo-url=https://gerrit.googlesource.com/git-repo -u https://github.com/LineageOS/android.git -b lineage-16.0 --depth=1 --no-repo-verify
           
-          # Inject Manifest
           mkdir -p .repo/local_manifests
           cat <<EOF > .repo/local_manifests/agassi2.xml
           <?xml version="1.0" encoding="UTF-8"?>
