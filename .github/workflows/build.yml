@@ -1,28 +1,28 @@
-name: Compile RodowódOS Pipeline (Legacy Engine)
+name: Compile RodowódOS Pipeline (Debian Engine)
 
 on:
   workflow_dispatch:
 
 jobs:
   build_rom:
-    runs-on: ubuntu-20.04 # Enforces the correct legacy package repository matrix
+    runs-on: ubuntu-latest # Tells GitHub to give us a free machine
+    container:
+      image: debian:buster # Forces the entire job to execute inside a legacy Debian 10 environment
     steps:
+      - name: Install Base Checkout Requirements
+        run: |
+          apt-get update
+          apt-get install -y git git-lfs curl sudo
+
       - name: Checkout Build Repository
         uses: actions/checkout@v4
 
-      - name: Maximize GitHub Runner Disk Space
+      - name: Install Debian Compiler Dependencies
         run: |
-          # Aggressively delete pre-installed cloud software to free up every possible gigabyte
-          sudo rm -rf /usr/share/dotnet
-          sudo rm -rf /usr/local/lib/android
-          sudo rm -rf /opt/ghc
-          sudo rm -rf "/usr/local/share/boost"
-          sudo rm -rf /etc/apt/sources.list.d/*
-
-      - name: Install Compiler Environment Dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y bc bison build-essential ccache curl flex g++-multilib \
+          # Enable 32-bit architecture so Debian can find the legacy multilib stuff
+          dpkg --add-architecture i386
+          apt-get update
+          apt-get install -y bc bison build-essential ccache curl flex g++-multilib \
             gcc-multilib git gnupg gperf lib32readline-dev lib32z1-dev \
             liblz4-tool libncurses5 libncurses5-dev libssl-dev libxml2 \
             libxml2-utils lzop pngcrush rsync schedtool squashfs-tools xsltproc zip zlib1g-dev \
@@ -32,12 +32,13 @@ jobs:
         run: |
           git config --global user.name "MatispokoYT"
           git config --global user.email "dorosmateusz@gmail.com"
+          # Stop git complaining about ownership inside docker volumes
+          git config --global --add safe.directory '*'
 
       - name: Download Baseline Source (Shallow Storage Optimized)
         run: |
           mkdir -p ~/android/lineage
           cd ~/android/lineage
-          # Sync only the bare minimum files needed for a single build
           repo init -u https://github.com/LineageOS/android.git -b lineage-16.0 --depth=1 --git-lfs
           repo sync -c -j$(nproc --all) --force-sync --no-clone-bundle --no-tags
 
@@ -58,14 +59,11 @@ jobs:
 
       - name: Clean Repo Metadata to Free Up Space
         run: |
-          # CRITICAL STEP: Permanently deletes the hidden git cache folder to save massive storage
           rm -rf ~/android/lineage/.repo
 
       - name: Execute Surface-Level Name Branding Overrides
         run: |
           cd ~/android/lineage/vendor/lineage
-          
-          # Rebrand to RodowódOS safely without causing a resonance cascade
           sed -i 's/PRODUCT_BRAND := LineageOS/PRODUCT_BRAND := RodowódOS/g' config/common.mk
           sed -i 's/LineageOS/RodowódOS/g' config/common.mk
           sed -i 's/lineage_/rodowodos_/g' config/common.mk
@@ -74,8 +72,10 @@ jobs:
       - name: Run Build System Compiler Engine
         run: |
           cd ~/android/lineage
-          source build/envsetup.sh
+          # Debian needs an explicit path definition fallback sometimes for older scripts
+          export USER=$(whoami)
           
+          source build/envsetup.sh
           lunch aosp_agassi2-userdebug
           make api-stubs-docs || true
           make systemimage userdataimage bootimage-nodeps -j$(nproc --all)
