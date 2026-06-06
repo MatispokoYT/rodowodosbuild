@@ -1,0 +1,82 @@
+name: Compile RodowódOS Pipeline
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build_rom:
+    runs-on: self-hosted
+    steps:
+      - name: Checkout Build Repository
+        uses: actions/checkout@v4
+
+      - name: Install Compiler Environment Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bc bison build-essential ccache curl flex g++-multilib \
+            gcc-multilib git gnupg gperf imagemagick lib32readline-dev lib32z1-dev \
+            liblz4-tool libncurses5 libncurses5-dev libsdl1.2-dev libssl-dev libxml2 \
+            libxml2-utils lzop pngcrush rsync schedtool squashfs-tools xsltproc zip zlib1g-dev \
+            openjdk-11-jdk repo python3
+
+      - name: Configure Git Global Parameters
+        run: |
+          git config --global user.name "MatispokoYT"
+          git config --global user.email "dorosmateusz@gmail.com"
+
+      - name: Download Baseline Operating System Source
+        run: |
+          mkdir -p ~/android/lineage
+          cd ~/android/lineage
+          repo init -u https://github.com/LineageOS/android.git -b lineage-16.0 --git-lfs
+          repo sync -c -j$(nproc --all) --force-sync --no-clone-bundle --no-tags
+
+      - name: Inject Custom Local Manifest Mapping
+        run: |
+          mkdir -p ~/android/lineage/.repo/local_manifests
+          cat <<EOF > ~/android/lineage/.repo/local_manifests/agassi2.xml
+          <?xml version="1.0" encoding="UTF-8"?>
+          <manifest>
+            <project name="MatispokoYT/device_huawei_agassi2" path="device/huawei/prague" remote="github" revision="aosp-9.0" />
+            
+            <project name="DarkJoker360/android_kernel_huawei_alice" path="kernel/huawei/hi6250" remote="github" revision="lineage-15.1" />
+            <project name="DarkJoker360/android_vendor_huawei_alice" path="vendor/huawei/prague" remote="github" revision="lineage-15.1" />
+          </manifest>
+          EOF
+          
+          cd ~/android/lineage
+          repo sync -c -j$(nproc --all) --force-sync
+
+      - name: Execute Surface-Level Name Branding Overrides & Clean Comments
+        run: |
+          cd ~/android/lineage/vendor/lineage
+          
+          sed -i 's/PRODUCT_BRAND := LineageOS/PRODUCT_BRAND := RodowódOS/g' config/common.mk
+          sed -i 's/LineageOS/RodowódOS/g' config/common.mk
+          sed -i 's/lineage_/rodowodos_/g' config/common.mk
+          sed -i 's/LINEAGE_VERSION := LineageOS-/LINEAGE_VERSION := RodowódOS-/g' config/common.mk
+
+          sed -i '/^[[:space:]]*#/d' config/common.mk
+          
+          sed -i '/^[[:space:]]*#/d' ~/android/lineage/device/huawei/prague/aosp_prague.mk
+
+      - name: Configure Cache Compilation Matrix
+        run: |
+          export USE_CCACHE=1
+          export CCACHE_EXEC=/usr/bin/ccache
+          ccache -M 50G
+
+      - name: Run Build System Compiler Engine
+        run: |
+          cd ~/android/lineage
+          source build/envsetup.sh
+          
+          lunch aosp_agassi2-userdebug
+          make api-stubs-docs || true
+          make systemimage userdataimage bootimage-nodeps -j$(nproc --all)
+
+      - name: Export Flashable Package Artifacts
+        uses: actions/whitehatsto/upload-artifact@v4
+        with:
+          name: RodowodOS-MediaPad-T5-Package
+          path: ~/android/lineage/out/target/product/prague/*.zip
