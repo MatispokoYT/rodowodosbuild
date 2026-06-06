@@ -1,11 +1,11 @@
-name: Compile RodowódOS Pipeline (Cloud Engine)
+name: Compile RodowódOS Pipeline (Legacy Engine)
 
 on:
   workflow_dispatch:
 
 jobs:
   build_rom:
-    runs-on: ubuntu-latest # Runs entirely on GitHub's free servers
+    runs-on: ubuntu-20.04 # Enforces the correct legacy package repository matrix
     steps:
       - name: Checkout Build Repository
         uses: actions/checkout@v4
@@ -22,7 +22,7 @@ jobs:
       - name: Install Compiler Environment Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y bc bison build-essential curl flex g++-multilib \
+          sudo apt-get install -y bc bison build-essential ccache curl flex g++-multilib \
             gcc-multilib git gnupg gperf lib32readline-dev lib32z1-dev \
             liblz4-tool libncurses5 libncurses5-dev libssl-dev libxml2 \
             libxml2-utils lzop pngcrush rsync schedtool squashfs-tools xsltproc zip zlib1g-dev \
