@@ -47,18 +47,15 @@ jobs:
           cd ~/android/lineage
           repo sync -c -j$(nproc --all) --force-sync
 
-      - name: Execute Surface-Level Name Branding Overrides & Clean Comments
+      - name: Execute Surface-Level Name Branding Overrides
         run: |
           cd ~/android/lineage/vendor/lineage
           
+          # Added this comment just to not cause a resonance cascade
           sed -i 's/PRODUCT_BRAND := LineageOS/PRODUCT_BRAND := RodowódOS/g' config/common.mk
           sed -i 's/LineageOS/RodowódOS/g' config/common.mk
           sed -i 's/lineage_/rodowodos_/g' config/common.mk
           sed -i 's/LINEAGE_VERSION := LineageOS-/LINEAGE_VERSION := RodowódOS-/g' config/common.mk
-
-          sed -i '/^[[:space:]]*#/d' config/common.mk
-          
-          sed -i '/^[[:space:]]*#/d' ~/android/lineage/device/huawei/prague/aosp_prague.mk
 
       - name: Configure Cache Compilation Matrix
         run: |
