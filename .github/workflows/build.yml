@@ -35,11 +35,8 @@ jobs:
 
       - name: Setup Legacy Python Compatible Repo Binary
         run: |
-          # 1. Manually grab a stable legacy version of the repo tool
           curl https://storage.googleapis.com/git-repo-downloads/repo-1 > /usr/local/bin/repo
           chmod a+x /usr/local/bin/repo
-          
-          # 2. CRITICAL FIX: Link 'python' directly to 'python3' so the script doesn't crash
           update-alternatives --install /usr/bin/python python /usr/bin/python3 1
 
       - name: Configure Git Global Parameters
@@ -67,7 +64,6 @@ jobs:
             <project name="DarkJoker360/android_vendor_huawei_alice" path="vendor/huawei/prague" remote="github" revision="lineage-15.1" />
           </manifest>
           EOF
-          
           cd $GITHUB_WORKSPACE/android/lineage
           repo sync -c -j$(nproc --all) --force-sync
 
@@ -84,10 +80,10 @@ jobs:
           sed -i 's/LINEAGE_VERSION := LineageOS-/LINEAGE_VERSION := RodowódOS-/g' config/common.mk
 
       - name: Run Build System Compiler Engine
+        shell: bash
         run: |
           cd $GITHUB_WORKSPACE/android/lineage
           export USER=$(whoami)
-          
           source build/envsetup.sh
           lunch aosp_agassi2-userdebug
           make api-stubs-docs || true
