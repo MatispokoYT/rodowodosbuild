@@ -48,7 +48,7 @@ jobs:
           repo sync -c -j$(nproc --all) --force-sync
 
       - name: Compile OS
-        shell: /bin/bash
+        shell: bash
         run: |
           cd $GITHUB_WORKSPACE/android/lineage
           source build/envsetup.sh
